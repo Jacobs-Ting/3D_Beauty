@@ -17,6 +17,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const axesToggle = document.getElementById('axes-toggle');
     const gridToggle = document.getElementById('grid-toggle');
     const symmetryToggle = document.getElementById('symmetry-toggle');
+    const elementTypeSelect = document.getElementById('element-type-select');
     const screenshotBtn = document.getElementById('screenshot-btn');
     const exportBtn = document.getElementById('export-btn');
     const importBtn = document.getElementById('import-btn');
@@ -183,6 +184,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePhasedArrayVisuals() {
+        const elementType = elementTypeSelect ? elementTypeSelect.value : 'isotropic';
         const Nx = parseInt(arraySizeXSlider.value, 10);
         const Ny = parseInt(arraySizeYSlider.value, 10);
         const spacing = parseFloat(spacingSlider.value);
@@ -235,7 +237,17 @@ window.addEventListener('DOMContentLoaded', () => {
                 }
                 let magY = Math.sqrt(sumY_re * sumY_re + sumY_im * sumY_im);
 
-                let afMag = magX * magY;
+                // element pattern gain
+                let elementGain = 1.0;
+                if (elementType === 'patch') {
+                    if (theta <= Math.PI / 2) {
+                        elementGain = Math.cos(theta);
+                    } else {
+                        elementGain = 0.001;
+                    }
+                }
+
+                let afMag = magX * magY * elementGain;
                 let db = afMag > 0.0001 ? 20 * Math.log10(afMag) : -80;
                 if (db < -40) db = -40;
 
@@ -269,6 +281,11 @@ window.addEventListener('DOMContentLoaded', () => {
                 sumX_im += wx_n[m] * Math.sin(phase);
             }
             let afMag = Math.sqrt(sumX_re * sumX_re + sumX_im * sumX_im);
+            // apply element pattern to cut if in patch mode
+            if (elementType === 'patch') {
+                let elementGainCut = theta <= Math.PI / 2 ? Math.cos(theta) : 0.001;
+                afMag *= elementGainCut;
+            }
             let db = afMag > 0.0001 ? 20 * Math.log10(afMag) : -80;
             if (db < -50) db = -50;
 
@@ -381,6 +398,7 @@ window.addEventListener('DOMContentLoaded', () => {
             gradientColor1: gradientColor1.value,
             gradientColor2: gradientColor2.value,
             gradientColor3: gradientColor3.value,
+            elementType: elementTypeSelect ? elementTypeSelect.value : 'isotropic',
         };
         const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -420,6 +438,26 @@ window.addEventListener('DOMContentLoaded', () => {
         if (obj.gradientColor2) gradientColor2.value = obj.gradientColor2;
         if (obj.gradientColor3) gradientColor3.value = obj.gradientColor3;
 
+        // elementType: default to 'isotropic' for backward compatibility
+        const importedElementType = obj.elementType !== undefined ? obj.elementType : 'isotropic';
+        if (elementTypeSelect) {
+            elementTypeSelect.value = importedElementType;
+            if (importedElementType === 'patch') {
+                if (symmetryToggle) {
+                    symmetryToggle.checked = false;
+                    symmetryToggle.disabled = true;
+                }
+                // ensure half-sphere geometry
+                createAndAttachSphere(Math.PI / 2);
+            } else {
+                if (symmetryToggle) {
+                    symmetryToggle.disabled = false;
+                }
+                const theta = (symmetryToggle && symmetryToggle.checked) ? Math.PI : Math.PI / 2;
+                createAndAttachSphere(theta);
+            }
+        }
+
         gradientControls.classList.toggle('hidden', !renderToggle.checked);
         if (axesHelper) axesHelper.visible = axesToggle.checked;
         if (gridHelper) gridHelper.visible = gridToggle.checked;
@@ -453,6 +491,32 @@ window.addEventListener('DOMContentLoaded', () => {
     gradientColor1.addEventListener('input', debouncedUpdatePhasedArray);
     gradientColor2.addEventListener('input', debouncedUpdatePhasedArray);
     gradientColor3.addEventListener('input', debouncedUpdatePhasedArray);
+
+    // Element type select (isotropic / patch)
+    if (elementTypeSelect) {
+        elementTypeSelect.addEventListener('change', () => {
+            const val = elementTypeSelect.value;
+            // If switching to Patch, force symmetry off and disable it
+            if (val === 'patch') {
+                if (symmetryToggle) {
+                    symmetryToggle.checked = false;
+                    symmetryToggle.disabled = true;
+                    // ensure geometry is half-sphere
+                    createAndAttachSphere(Math.PI / 2);
+                }
+            } else {
+                // enable symmetry toggle again
+                if (symmetryToggle) {
+                    symmetryToggle.disabled = false;
+                    const theta = symmetryToggle.checked ? Math.PI : Math.PI / 2;
+                    createAndAttachSphere(theta);
+                }
+            }
+            debouncedUpdatePhasedArray();
+        });
+        // apply initial interlock state
+        elementTypeSelect.dispatchEvent(new Event('change'));
+    }
 
     taylorToggle.addEventListener('change', () => {
         updatePhasedArrayVisuals();
