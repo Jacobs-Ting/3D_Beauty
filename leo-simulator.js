@@ -16,6 +16,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const renderToggle = document.getElementById('render-toggle');
     const axesToggle = document.getElementById('axes-toggle');
     const gridToggle = document.getElementById('grid-toggle');
+    const symmetryToggle = document.getElementById('symmetry-toggle');
     const screenshotBtn = document.getElementById('screenshot-btn');
     const exportBtn = document.getElementById('export-btn');
     const importBtn = document.getElementById('import-btn');
@@ -51,21 +52,8 @@ window.addEventListener('DOMContentLoaded', () => {
         orbitControls.minDistance = 2;
         orbitControls.maxDistance = 15;
 
-        sphereGeometry = new THREE.SphereGeometry(1.0, 60, 30, 0, Math.PI * 2, 0, Math.PI / 2);
-        const posAttr = sphereGeometry.attributes.position;
-        originalPositions = new Float32Array(posAttr.array);
-
-        const colors = new Float32Array(posAttr.count * 3);
-        sphereGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-        const material = new THREE.MeshBasicMaterial({
-            vertexColors: true,
-            side: THREE.DoubleSide,
-            wireframe: false
-        });
-
-        sphereMesh = new THREE.Mesh(sphereGeometry, material);
-        scene3d.add(sphereMesh);
+        const initialTheta = (symmetryToggle && symmetryToggle.checked) ? Math.PI : Math.PI / 2;
+        createAndAttachSphere(initialTheta);
 
         gridHelper = new THREE.GridHelper(6, 20, 0x1e293b, 0x0f172a);
         gridHelper.rotation.x = Math.PI / 2;
@@ -75,6 +63,45 @@ window.addEventListener('DOMContentLoaded', () => {
         axesHelper = new THREE.AxesHelper(3);
         axesHelper.position.z = 0.01;
         scene3d.add(axesHelper);
+    }
+
+    function createAndAttachSphere(thetaLength) {
+        // Create new sphere geometry with requested thetaLength
+        const newGeom = new THREE.SphereGeometry(1.0, 60, 30, 0, Math.PI * 2, 0, thetaLength);
+        const posAttr = newGeom.attributes.position;
+
+        // store original positions for calculation
+        originalPositions = new Float32Array(posAttr.array);
+
+        // create color attribute
+        const colors = new Float32Array(posAttr.count * 3);
+        newGeom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+        if (!sphereMesh) {
+            const material = new THREE.MeshBasicMaterial({
+                vertexColors: true,
+                side: THREE.DoubleSide,
+                wireframe: false
+            });
+            sphereMesh = new THREE.Mesh(newGeom, material);
+            scene3d.add(sphereMesh);
+        } else {
+            // replace geometry safely
+            const oldGeom = sphereMesh.geometry;
+            sphereMesh.geometry = newGeom;
+            sphereGeometry = newGeom;
+            // dispose old geometry and its buffers
+            try {
+                if (oldGeom) {
+                    oldGeom.dispose();
+                }
+            } catch (e) {
+                console.warn('Error disposing old geometry:', e);
+            }
+        }
+
+        // ensure global reference
+        sphereGeometry = newGeom;
     }
 
     initThreeJS();
@@ -316,6 +343,17 @@ window.addEventListener('DOMContentLoaded', () => {
     gridToggle.addEventListener('change', () => {
         if (gridHelper) gridHelper.visible = gridToggle.checked;
     });
+
+    // Symmetry toggle: recreate sphere geometry with full sphere (thetaLength = PI) when enabled
+    if (symmetryToggle) {
+        symmetryToggle.addEventListener('change', () => {
+            const theta = symmetryToggle.checked ? Math.PI : Math.PI / 2;
+            // recreate geometry and update visuals
+            createAndAttachSphere(theta);
+            // recompute visuals immediately
+            debouncedUpdatePhasedArray();
+        });
+    }
 
     screenshotBtn.addEventListener('click', () => {
         if (!renderer3d) return;
