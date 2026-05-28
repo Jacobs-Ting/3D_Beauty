@@ -17,6 +17,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const axesToggle = document.getElementById('axes-toggle');
     const gridToggle = document.getElementById('grid-toggle');
     const screenshotBtn = document.getElementById('screenshot-btn');
+    const exportBtn = document.getElementById('export-btn');
+    const importBtn = document.getElementById('import-btn');
+    const importFileInput = document.getElementById('import-file-input');
     const gradientControls = document.getElementById('gradient-controls');
     const gradientColor1 = document.getElementById('gradient-color-1');
     const gradientColor2 = document.getElementById('gradient-color-2');
@@ -324,6 +327,89 @@ window.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    });
+
+    // Export settings as JSON
+    function exportSettings() {
+        const settings = {
+            arraySizeX: parseInt(arraySizeXSlider.value, 10),
+            arraySizeY: parseInt(arraySizeYSlider.value, 10),
+            spacing: parseFloat(spacingSlider.value),
+            steering: parseFloat(steeringSlider.value),
+            taylor: taylorToggle.checked,
+            render: renderToggle.checked,
+            axes: axesToggle.checked,
+            grid: gridToggle.checked,
+            gradientColor1: gradientColor1.value,
+            gradientColor2: gradientColor2.value,
+            gradientColor3: gradientColor3.value,
+        };
+        const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        a.download = `3d-beauty-settings-${ts}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function applySettings(obj) {
+        if (typeof obj !== 'object' || obj === null) return;
+        if (obj.arraySizeX !== undefined) {
+            arraySizeXSlider.value = obj.arraySizeX;
+            arraySizeXVal.textContent = obj.arraySizeX;
+        }
+        if (obj.arraySizeY !== undefined) {
+            arraySizeYSlider.value = obj.arraySizeY;
+            arraySizeYVal.textContent = obj.arraySizeY;
+        }
+        if (obj.spacing !== undefined) {
+            spacingSlider.value = obj.spacing;
+            spacingVal.textContent = parseFloat(obj.spacing).toFixed(2);
+        }
+        if (obj.steering !== undefined) {
+            steeringSlider.value = obj.steering;
+            steeringVal.textContent = parseFloat(obj.steering).toFixed(1) + '°';
+        }
+        if (obj.taylor !== undefined) taylorToggle.checked = !!obj.taylor;
+        if (obj.render !== undefined) renderToggle.checked = !!obj.render;
+        if (obj.axes !== undefined) axesToggle.checked = !!obj.axes;
+        if (obj.grid !== undefined) gridToggle.checked = !!obj.grid;
+        if (obj.gradientColor1) gradientColor1.value = obj.gradientColor1;
+        if (obj.gradientColor2) gradientColor2.value = obj.gradientColor2;
+        if (obj.gradientColor3) gradientColor3.value = obj.gradientColor3;
+
+        gradientControls.classList.toggle('hidden', !renderToggle.checked);
+        if (axesHelper) axesHelper.visible = axesToggle.checked;
+        if (gridHelper) gridHelper.visible = gridToggle.checked;
+
+        debouncedUpdatePhasedArray();
+    }
+
+    exportBtn && exportBtn.addEventListener('click', exportSettings);
+
+    // Import flow
+    importBtn && importBtn.addEventListener('click', () => {
+        importFileInput && importFileInput.click();
+    });
+
+    importFileInput && importFileInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const obj = JSON.parse(ev.target.result);
+                applySettings(obj);
+            } catch (err) {
+                alert('匯入失敗：無效的 JSON 檔案');
+            }
+        };
+        reader.readAsText(file);
+        importFileInput.value = '';
     });
 
     gradientColor1.addEventListener('input', debouncedUpdatePhasedArray);

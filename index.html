@@ -87,6 +87,11 @@
                 <div class="control-group">
                     <button class="btn primary" id="screenshot-btn"><i class="fa-solid fa-camera"></i> 存成圖片</button>
                 </div>
+                <div class="control-group btn-row">
+                    <button class="btn" id="export-btn"><i class="fa-solid fa-file-export"></i> 匯出設定</button>
+                    <button class="btn" id="import-btn"><i class="fa-solid fa-file-import"></i> 匯入設定</button>
+                    <input type="file" id="import-file-input" accept="application/json" style="display:none">
+                </div>
                 <div class="control-group gradient-section hidden" id="gradient-controls">
                     <div class="slider-label gradient-row">
                         <span>漸層色 1</span>
@@ -114,8 +119,13 @@
                 </header>
                 <div class="card-eda-content">
                     <div class="visual-3d-wrapper">
-                        <div class="visual-3d-title">3D UE Spherical EIRP Heatmap</div>
+                        <!-- title removed per user request -->
                         <div id="webgl-container"></div>
+                        <div class="axes-legend" aria-hidden="false">
+                            <div class="legend-item"><span class="legend-dot x-dot"></span><span class="legend-label">X: 紅色</span></div>
+                            <div class="legend-item"><span class="legend-dot y-dot"></span><span class="legend-label">Y: 綠色</span></div>
+                            <div class="legend-item"><span class="legend-dot z-dot"></span><span class="legend-label">Z: 藍色</span></div>
+                        </div>
                         <div class="visual-3d-hint">Drag to rotate, Scroll to zoom</div>
                     </div>
                 </div>
